@@ -756,6 +756,12 @@ class FakeAnalytics extends AnalyticsImpl {
     // for internal methods in the `Analytics` instance
     sentEvents.add(event);
   }
+
+  @override
+  Future<void> close({int delayDuration = kDelayDuration}) {
+    // No timeout
+    return Future.wait(_futures);
+  }
 }
 
 /// An implementation that will never send events.

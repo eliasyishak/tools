@@ -196,12 +196,13 @@ void main() {
     final start = DateTime(1995, 3, 3, 12, 0);
 
     // Set the clock to the start value defined above
-    withClock(Clock.fixed(start), () {
+    withClock(Clock.fixed(start), () async {
       final timestamp = clock.now().millisecondsSinceEpoch.toString();
       expect(sessionFile.existsSync(), false);
       analytics.userProperty.preparePayload();
       expect(sessionFile.readAsStringSync(), '{"session_id": $timestamp}');
 
+      await analytics.close();
       // Attempting to fetch the session id when malformed should also
       // send an error event while parsing
       final lastEvent = analytics.sentEvents.last;

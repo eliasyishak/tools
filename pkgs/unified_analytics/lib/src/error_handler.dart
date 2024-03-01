@@ -21,12 +21,19 @@ class ErrorHandler {
   /// This method will not send the event to GA4 if it has already been
   /// sent before during the current process.
   void log(Event event) {
-    if (event.eventName != DashEvent.analyticsException ||
-        _sentErrorEvents.contains(event)) {
-      return;
-    }
+    Future<void>.delayed(Duration.zero).then((_) {
+      if (event.eventName != DashEvent.analyticsException ||
+          _sentErrorEvents.contains(event)) {
+        return;
+      }
 
-    _sendFunction(event);
-    _sentErrorEvents.add(event);
+      try {
+        _sendFunction(event);
+      } on Object {
+        // ignore errors while sending this
+        print('uh oh');
+      }
+      _sentErrorEvents.add(event);
+    });
   }
 }

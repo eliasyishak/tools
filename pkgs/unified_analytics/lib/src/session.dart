@@ -49,6 +49,15 @@ class Session {
   /// because the last ping variable will always need to be persisted.
   // TODO
   int getSessionId() {
+    if (!sessionFile.existsSync()) {
+      _errorHandler.log(Event.analyticsException(
+        workflow: 'Session._refreshSessionData',
+        error: 'FileSystemException',
+      ));
+
+      // TODO handle filesystemexception?
+      Initializer.createSessionFile(sessionFile: sessionFile);
+    }
     final lastPingDateTime = sessionFile.lastModifiedSync();
 
     final now = clock.now();
