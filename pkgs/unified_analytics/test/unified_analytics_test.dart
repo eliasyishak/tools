@@ -47,6 +47,7 @@ void main() {
 
   setUp(() {
     // Setup the filesystem with the home directory
+    // TODO we should test all platforms
     final fsStyle =
         io.Platform.isWindows ? FileSystemStyle.windows : FileSystemStyle.posix;
     fs = MemoryFileSystem.test(style: fsStyle);

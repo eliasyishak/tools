@@ -453,10 +453,6 @@ class AnalyticsImpl implements Analytics {
       homeDirectory: homeDirectory,
       errorHandler: _errorHandler,
     );
-
-    // Initialize the session handler with the session_id and last_ping
-    // variables by parsing the json file
-    _sessionHandler.initialize(telemetryEnabled);
   }
 
   @override

@@ -19,16 +19,23 @@ class Session {
   final File sessionFile;
   final ErrorHandler _errorHandler;
 
-  int _sessionId;
-
   Session({
     required this.homeDirectory,
     required this.fs,
     required ErrorHandler errorHandler,
   })  : sessionFile = fs.file(p.join(
             homeDirectory.path, kDartToolDirectoryName, kSessionFileName)),
-        _sessionId = DateTime.now().millisecondsSinceEpoch,
         _errorHandler = errorHandler;
+
+  int get sessionId {
+    if (_sessionId != null) {
+      return _sessionId!;
+    }
+    _sessionId = _readSessionIdFromDisk();
+    return _sessionId!;
+  }
+
+  int? _sessionId;
 
   /// This will use the data parsed from the
   /// session file in the dart-tool directory
@@ -40,34 +47,26 @@ class Session {
   ///
   /// Note, the file will always be updated when calling this method
   /// because the last ping variable will always need to be persisted.
+  // TODO
   int getSessionId() {
-    _refreshSessionData();
-    final now = clock.now();
-
-    // Convert the epoch time from the last ping into datetime and check if we
-    // are within the kSessionDurationMinutes.
     final lastPingDateTime = sessionFile.lastModifiedSync();
-    if (now.difference(lastPingDateTime).inMinutes > kSessionDurationMinutes) {
-      // Update the session file with the latest session id
-      _sessionId = now.millisecondsSinceEpoch;
-      sessionFile.writeAsStringSync('{"session_id": $_sessionId}');
+
+    final now = clock.now();
+    if (!_longerThanSessionDuration(now, lastPingDateTime)) {
+      sessionFile.setLastModifiedSync(now);
+      return sessionId;
     }
 
-    // Update the last modified timestamp with the current timestamp so that
-    // we can use it for the next _lastPing calculation
-    sessionFile.setLastModifiedSync(now);
+    // Session file is stale
+    _sessionId = now.millisecondsSinceEpoch;
 
-    return _sessionId;
+    // Update the session file with the latest session id
+    sessionFile.writeAsStringSync('{"session_id": $_sessionId}');
+    return _sessionId!;
   }
 
-  /// Preps the [Session] class with the data found in the session file.
-  ///
-  /// We must check if telemetry is enabled to refresh the session data
-  /// because the refresh method will write to the session file and for
-  /// users that have opted out, we have to leave the session file empty
-  /// per the privacy document
-  void initialize(bool telemetryEnabled) {
-    if (telemetryEnabled) _refreshSessionData();
+  bool _longerThanSessionDuration(DateTime now, DateTime other) {
+    return now.difference(other).inMinutes > kSessionDurationMinutes;
   }
 
   /// This will go to the session file within the dart-tool
@@ -78,25 +77,16 @@ class Session {
   /// This allows the session data in this class to always be up
   /// to date incase another tool is also calling this package and
   /// making updates to the session file.
-  void _refreshSessionData() {
-    /// Using a nested function here to reduce verbosity
-    void parseContents() {
-      final sessionFileContents = sessionFile.readAsStringSync();
-      final sessionObj =
-          jsonDecode(sessionFileContents) as Map<String, Object?>;
-      _sessionId = sessionObj['session_id'] as int;
-    }
-
+  int _readSessionIdFromDisk() {
     try {
       // Failing to parse the contents will result in the current timestamp
       // being used as the session id and will get used to recreate the file
-      parseContents();
+      final sessionFileContents = sessionFile.readAsStringSync();
+      final sessionObj =
+          jsonDecode(sessionFileContents) as Map<String, Object?>;
+      return sessionObj['session_id'] as int;
     } on FormatException catch (err) {
       final now = clock.now();
-      Initializer.createSessionFile(
-        sessionFile: sessionFile,
-        sessionIdOverride: now,
-      );
 
       _errorHandler.log(Event.analyticsException(
         workflow: 'Session._refreshSessionData',
@@ -105,7 +95,7 @@ class Session {
       ));
 
       // Fallback to setting the session id as the current time
-      _sessionId = now.millisecondsSinceEpoch;
+      return now.millisecondsSinceEpoch;
     } on FileSystemException catch (err) {
       final now = clock.now();
       Initializer.createSessionFile(
@@ -120,7 +110,7 @@ class Session {
       ));
 
       // Fallback to setting the session id as the current time
-      _sessionId = now.millisecondsSinceEpoch;
+      return now.millisecondsSinceEpoch;
     }
   }
 }
